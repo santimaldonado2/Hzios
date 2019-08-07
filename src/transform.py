@@ -10,8 +10,11 @@ with open('config/pathloss_columns.pkl', 'rb') as file:
 with open('config/enacom_selected_columns.pkl', 'rb') as file:
     enacom_selected_columns = pickle.load(file)
 
-with open('config/antennas_dict.json') as config_file:
+with open('config/antennas_diameter_dict.json') as config_file:
     antennas_diameter_dict = json.load(config_file)
+
+with open('config/antennas_info_dict.json') as config_file:
+    antennas_info_dict = json.load(config_file)
 
 
 def lat_transformation(lat_lon, lat=True):
@@ -42,10 +45,21 @@ def get_diameter(antenna_desc):
         diameter = antennas_diameter_dict[antenna_desc]
     return diameter
 
+def get_antenna_code(diameter):
+    diameter = str(diameter)
+    if diameter in antennas_info_dict:
+        return antennas_info_dict[diameter]['code']
+    return diameter
+
+def get_antenna_gain(diameter):
+    diameter = str(diameter)
+    if diameter in antennas_info_dict:
+        return antennas_info_dict[diameter]['gain']
+    return diameter
 
 # File Import
 enacom_export = pd.read_excel(sys.argv[1])
-
+enacom_export = pd.read_excel('data/Export_Enacom2.xlsx')
 # Integrity Check
 not_linked_antennas = [uid for uid in enacom_export.NA_ENLAZADO.unique() if uid not in enacom_export.NA_HERTZ.unique()]
 if len(not_linked_antennas) > 0:
@@ -75,6 +89,9 @@ pathloss_df.CallSign = pathloss_df.CallSign.apply(lambda name: '{0:.0f}'.format(
 pathloss_df.Latitude = pathloss_df.Latitude.apply(lat_transformation)
 pathloss_df.Longitude = pathloss_df.Longitude.apply(lon_transformation)
 pathloss_df.AntennaDiameter = pathloss_df.AntennaDiameter.apply(get_diameter)
+pathloss_df.AntennaModel = pathloss_df.AntennaDiameter.apply(get_antenna_code)
+pathloss_df.AntennaCode = pathloss_df.AntennaDiameter.apply(get_antenna_code)
+pathloss_df.AntennaGain = pathloss_df.AntennaDiameter.apply(get_antenna_gain)
 pathloss_df.TXFreq1 = pathloss_df.TXFreq1.apply(lambda freq: '{0:.4f}'.format(freq))
 pathloss_df.Pol1 = pathloss_df.Pol1.apply(lambda pol: pol[-2])
 
