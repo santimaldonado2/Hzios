@@ -8,6 +8,5 @@ This is a transformer that allows you to transform the direct Enacom export info
 4. Execute `pip install -r requirements.txt`. This command will install all the needed dependencies
 
 ## Execution
-1. Execute the command-line terminal on the folder where this project is
-2. Excecute `python src/transformer.py [origin_file] [destiny-file]`
+1. Execute the transformer.bat file
 
