@@ -1,5 +1,4 @@
 import pandas as pd
-import sys
 import pickle
 import re
 import json
@@ -9,6 +8,7 @@ with open('config/antennas_diameter_dict.json') as config_file:
 
 with open('config/antennas_info_dict.json') as config_file:
     antennas_info_dict = json.load(config_file)
+
 
 def lat_transformation(lat_lon, lat=True):
     lat_lon = lat_lon.replace('°', '')
@@ -36,21 +36,41 @@ def get_diameter(antenna_desc):
         diameter = diameter.strip()
     elif antenna_desc in antennas_diameter_dict:
         diameter = antennas_diameter_dict[antenna_desc]
+    else:
+        antennas_diameter_dict[antenna_desc] = antenna_desc
     return diameter
 
 
 def get_antenna_code(diameter):
+    global antennas_info_dict
     diameter = str(diameter)
-    if diameter in antennas_info_dict:
+    if diameter in antennas_info_dict and 'code' in antennas_info_dict[diameter]:
         return antennas_info_dict[diameter]['code']
+    elif diameter in antennas_info_dict:
+        antennas_info_dict[diameter]['code'] = diameter
+    else:
+        antennas_info_dict[diameter] = {'code': diameter}
     return diameter
 
 
 def get_antenna_gain(diameter):
+    global antennas_info_dict
     diameter = str(diameter)
-    if diameter in antennas_info_dict:
+    if diameter in antennas_info_dict and 'gain' in antennas_info_dict[diameter]:
         return antennas_info_dict[diameter]['gain']
+    elif diameter in antennas_info_dict:
+        antennas_info_dict[diameter]['gain'] = diameter
+    else:
+        antennas_info_dict[diameter] = {'gain': diameter}
     return diameter
+
+
+def update_dicts():
+    with open('config/antennas_diameter_dict.json', 'w') as config_file:
+        json.dump(antennas_diameter_dict, config_file, indent=4)
+
+    with open('config/antennas_info_dict.json', 'w') as config_file:
+        json.dump(antennas_info_dict, config_file, indent=4)
 
 
 def transform(import_file, result_dir, result_filename):
@@ -137,5 +157,8 @@ def transform(import_file, result_dir, result_filename):
 
     result_file = '{}/{}'.format(result_dir, result_filename)
     pathloss_df_complete.to_csv(result_file, index=False, header=False)
+
+    update_dicts()
+
     messages += "Transformation Done! look for the file in {}\n".format(result_file)
     return messages

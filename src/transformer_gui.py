@@ -2,7 +2,7 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
 from transform import transform
-from PIL import ImageTk,Image
+from PIL import ImageTk, Image
 
 
 def search_file(*args):
@@ -54,9 +54,6 @@ result_filename_entry.grid(column=2, row=4, sticky=(W, E))
 ttk.Button(mainframe, text="Transform", command=transform_file, width=140).grid(column=1, columnspan=3, row=5)
 
 ttk.Label(mainframe, textvariable=messages).grid(column=1, columnspan=3, row=6, sticky=(W, E))
-
-
-
 
 for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 
