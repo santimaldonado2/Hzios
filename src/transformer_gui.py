@@ -3,6 +3,10 @@ from tkinter import ttk
 from tkinter import filedialog
 from transform import transform
 from PIL import ImageTk, Image
+import logging
+
+logging.basicConfig(format='[%(asctime)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+                    filename='logs/mzTransformer.log', level=logging.INFO)
 
 
 def search_file(*args):
