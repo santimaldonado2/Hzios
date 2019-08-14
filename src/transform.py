@@ -1,14 +1,70 @@
-import pandas as pd
+import logging
 import pickle
 import re
-import json
-import logging
+import pandas as pd
 
-with open('config/antennas_diameter_dict.json') as config_file:
-    antennas_diameter_dict = json.load(config_file)
+SHORT_DIAMETER_PATTERN = r'P \d[.,]?[\d+]?M'
+LONG_DIAMETER_PATTERN = r'\d[,.]?\d? metros'
+ANDREW = "ANDREW CORPORATION"
 
-with open('config/antennas_info_dict.json') as config_file:
-    antennas_info_dict = json.load(config_file)
+antennas_dict = pd.read_csv('config/antennas_dict.csv')
+
+
+def get_antenna_structure(diameter="", gain="", code=""):
+    return {
+        'diameter': diameter,
+        'gain': gain,
+        'code': code
+    }
+
+
+def mma_transform(mma, mma2, cb):
+    diameter = ""
+    cb = int(cb)
+    global antennas_dict
+    if mma and mma2:
+        if re.search(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
+            mma = mma.replace("ANDREW", "").replace("CORPORATION -", "").strip()
+            diameter = get_diameter(mma2)
+        else:
+            mma = mma2.replace(" ", "")
+
+        info = antennas_dict.loc[
+            antennas_dict.model.str.contains(mma), ["diameter", "gain", "model"]].values
+
+        if len(info) == 0:
+            antennas_dict = antennas_dict.append(pd.DataFrame({
+                "cb": [cb],
+                "trademark": [""],
+                "model": [mma],
+                "diameter": [diameter],
+                "gain": [""]
+            }), ignore_index=True)
+
+            info = [(diameter, '', mma)]
+
+    elif not mma:
+        if mma2 and re.match(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
+            info = antennas_dict.loc[(antennas_dict.trademark == ANDREW) &
+                                     (antennas_dict.diameter == get_diameter(mma2)) & (
+                                         antennas_dict.cb.str.contains(str(cb))), ["diameter", "gain",
+                                                                                   "model"]].values
+            if len(info) == 0:
+                antennas_dict = antennas_dict.append(pd.DataFrame({
+                    "cb": [cb],
+                    "trademark": [""],
+                    "model": ["DIAMETER NOT FOUND"],
+                    "diameter": [get_diameter(mma2)],
+                    "gain": [""]
+                }), ignore_index=True)
+
+                info = [(diameter, '', mma)]
+        else:
+            info = antennas_dict.loc[
+                (antennas_dict.trademark == ANDREW) & antennas_dict.cb.str.contains(str(cb)), ["diameter", "gain",
+                                                                                               "model"]].values
+
+    return tuple(info[0])
 
 
 def lat_transformation(lat_lon, lat=True):
@@ -25,20 +81,19 @@ def lon_transformation(lat_lon):
 
 def get_diameter(antenna_desc):
     diameter = antenna_desc
-    if re.match(r'P \d[.,]?[\d+]?M', antenna_desc):
-        diameter = re.findall(r'P \d[.,]?[\d+]?M', antenna_desc)[0]
+    if re.search(SHORT_DIAMETER_PATTERN, antenna_desc):
+        diameter = re.findall(SHORT_DIAMETER_PATTERN, antenna_desc)[0]
         diameter = diameter.replace('P ', '')
         diameter = diameter.replace('M', '')
+        diameter = diameter.replace(',', '.')
         diameter = diameter.strip()
-    elif re.match(r'.*\d,?\d? metros*.', antenna_desc):
-        diameter = re.findall(r'\d,?\d? metros', antenna_desc)[0]
+        diameter = float(diameter)
+    elif re.search(LONG_DIAMETER_PATTERN, antenna_desc):
+        diameter = re.findall(LONG_DIAMETER_PATTERN, antenna_desc)[0]
         diameter = diameter.replace(',', '.')
         diameter = diameter.replace('metros', '')
         diameter = diameter.strip()
-    elif antenna_desc in antennas_diameter_dict:
-        diameter = antennas_diameter_dict[antenna_desc]
-    else:
-        antennas_diameter_dict[antenna_desc] = antenna_desc
+        diameter = float(diameter)
     return diameter
 
 
@@ -66,12 +121,9 @@ def get_antenna_gain(diameter):
     return diameter
 
 
-def update_dicts():
-    with open('config/antennas_diameter_dict.json', 'w') as config_file:
-        json.dump(antennas_diameter_dict, config_file, indent=4)
-
-    with open('config/antennas_info_dict.json', 'w') as config_file:
-        json.dump(antennas_info_dict, config_file, indent=4)
+def update_antennas_dict():
+    global antennas_dict
+    antennas_dict.to_csv('config/antennas_dict.csv', index=False)
 
 
 def transform(import_file, result_dir, result_filename):
@@ -119,11 +171,13 @@ def transform(import_file, result_dir, result_filename):
         pathloss_df.CallSign = pathloss_df.CallSign.apply(lambda name: '{0:.0f}'.format(name))
         pathloss_df.Latitude = pathloss_df.Latitude.apply(lat_transformation)
         pathloss_df.Longitude = pathloss_df.Longitude.apply(lon_transformation)
-        pathloss_df.AntennaDiameter = pathloss_df.AntennaDiameter.fillna("")
-        pathloss_df.AntennaDiameter = pathloss_df.AntennaDiameter.apply(get_diameter)
-        pathloss_df.AntennaModel = pathloss_df.AntennaDiameter.apply(get_antenna_code)
-        pathloss_df.AntennaCode = pathloss_df.AntennaDiameter.apply(get_antenna_code)
-        pathloss_df.AntennaGain = pathloss_df.AntennaDiameter.apply(get_antenna_gain)
+        pathloss_df.loc[:, ["AntennaModel", "AntennaDiameter", "CallSign"]] = pathloss_df.loc[:,
+                                                                              ["AntennaModel", "AntennaDiameter",
+                                                                               "CallSign"]].fillna("")
+        tuple_list = [mma_transform(*tuple(row)) for row in
+                      pathloss_df.loc[:, ["AntennaModel", "AntennaDiameter", "CallSign"]].values]
+        pathloss_df.loc[:, ["AntennaDiameter", "AntennaGain", "AntennaModel"]] = pd.DataFrame(tuple_list).values
+        pathloss_df.AntennaCode = pathloss_df.AntennaModel
         pathloss_df.TXFreq1 = pathloss_df.TXFreq1.apply(lambda freq: '{0:.4f}'.format(freq))
         pathloss_df.Pol1 = pathloss_df.Pol1.apply(lambda pol: pol[-2])
 
@@ -168,7 +222,7 @@ def transform(import_file, result_dir, result_filename):
         result_file = '{}/{}'.format(result_dir, result_filename)
         pathloss_df_complete.to_csv(result_file, index=False, header=False)
 
-        update_dicts()
+        update_antennas_dict()
 
         logging.info("End Transformation")
         messages += "Transformation Done! look for the file in {}\n".format(result_file)
