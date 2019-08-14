@@ -8,13 +8,17 @@ import logging
 logging.basicConfig(format='[%(asctime)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
                     filename='logs/mzTransformer.log', level=logging.INFO)
 
+def clean_messages(*args):
+    messages.set("")
 
 def search_file(*args):
+    clean_messages()
     file_name = filedialog.askopenfilename()
     import_file.set(file_name)
 
 
 def choose_result_directory(*args):
+    clean_messages()
     result_directory.set(filedialog.askdirectory())
 
 
