@@ -4,9 +4,9 @@ from tkinter import filedialog
 from transform import transform
 from PIL import ImageTk, Image
 import logging
+from logging.config import fileConfig
 
-logging.basicConfig(format='[%(asctime)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
-                    filename='logs/mzTransformer.log', level=logging.INFO)
+fileConfig('config/logging_config.ini')
 
 def clean_messages(*args):
     messages.set("")
