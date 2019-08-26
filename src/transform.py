@@ -2,67 +2,120 @@ import logging
 import pickle
 import re
 import pandas as pd
+import uuid
 
 SHORT_DIAMETER_PATTERN = r'P \d[.,]?[\d+]?M'
 LONG_DIAMETER_PATTERN = r'\d[,.]?\d? metros'
 ANDREW = "ANDREW CORPORATION"
 
 antennas_dict = pd.read_csv('config/antennas_dict.csv')
+pathloss_antennas = pd.read_csv('config/pathloss_antennas.csv')
+generic_searches = pd.read_csv('config/generic_searches.csv')
+
+antennas_dict.cb = "-" + antennas_dict.cb
+pathloss_antennas.Cb = "-" + pathloss_antennas.Cb
+
+new_antennas = False
+new_diameters = False
+
+# Loggers
+transaction_id = None
+logger = logging.getLogger()
+transform_logger = logging.getLogger('transformLogger')
+generic_search_logger = logging.getLogger('genericSearchLogger')
 
 
-def get_antenna_structure(diameter="", gain="", code=""):
-    return {
-        'diameter': diameter,
-        'gain': gain,
-        'code': code
-    }
+def get_logging_message(message):
+    return '[{}]:{}'.format(transaction_id, message)
+
+
+def get_pathloss_antenna(cb, diameter):
+    global pathloss_antennas
+    transform_logger.info(get_logging_message('start get_pathloss_antenna cb=[{}], diameter=[{}]'.format(cb, diameter)))
+    antennas = pathloss_antennas.loc[
+        pathloss_antennas.Cb.str.contains('-{}'.format(cb)) &
+        (pathloss_antennas.Diameter <= diameter + 0.04) &
+        (pathloss_antennas.Diameter >= diameter - 0.04), ["Diameter", "Gain", "Model", "Code"]].values
+    transform_logger.info(get_logging_message('end get_pathloss_antenna antennas=[{}]'.format(antennas)))
+    return antennas
+
+
+def get_generic_antenna(cb, mma, diameter):
+    global pathloss_antennas, generic_searches, transaction_id
+    generic_search_logger.info(
+        get_logging_message('start get_generic_antenna cb=[{}], mma=[{}], diameter=[{}]'.format(cb, mma, diameter)))
+
+    generic_searches = generic_searches.append(pd.DataFrame({
+        "transaction_id": [transaction_id],
+        "cb": [cb],
+        "antenna": [mma],
+        "diameter": [diameter]
+    }), ignore_index=True, sort=False)
+
+    generic_antennas = pathloss_antennas.loc[
+        ~pathloss_antennas.Generic.isna() &
+        pathloss_antennas.Cb.str.contains('-{}'.format(cb)), ["Diameter", "Gain", "Model", "Code"]].values
+
+    generic_search_logger.info(
+        get_logging_message('end get_generic_antenna generic_antennas=[{}]'.format(generic_antennas)))
+
+    return generic_antennas
 
 
 def mma_transform(mma, mma2, cb):
+    transform_logger.info(get_logging_message('start mma_transform mma=[{}], mma2=[{}], cb=[{}]'.format(mma, mma2, cb)))
+
+    global new_antennas, new_diameters, antennas_dict
     diameter = ""
     cb = int(cb)
-    global antennas_dict
+    search_local = True
+
     if mma and mma2:
         if re.search(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
             mma = mma.replace("ANDREW", "").replace("CORPORATION -", "").strip()
             diameter = get_diameter(mma2)
+            info = get_pathloss_antenna(cb, diameter)
+            search_local = len(info) == 0
         else:
             mma = mma2.replace(" ", "")
 
-        info = antennas_dict.loc[
-            antennas_dict.model.str.contains(mma), ["diameter", "gain", "model"]].values
+        if search_local:
+            transform_logger.info(get_logging_message('start local search mma=[{}]'.format(mma)))
+            local_info = antennas_dict.loc[
+                antennas_dict.model.str.contains(mma), ["diameter", "gain", "model"]].values
 
-        if len(info) == 0:
-            antennas_dict = antennas_dict.append(pd.DataFrame({
-                "cb": [cb],
-                "trademark": [""],
-                "model": [mma],
-                "diameter": [diameter],
-                "gain": [""]
-            }), ignore_index=True)
-
-            info = [(diameter, '', mma)]
-
-    elif not mma:
-        if mma2 and re.match(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
-            info = antennas_dict.loc[(antennas_dict.trademark == ANDREW) &
-                                     (antennas_dict.diameter == get_diameter(mma2)) & (
-                                         antennas_dict.cb.str.contains(str(cb))), ["diameter", "gain",
-                                                                                   "model"]].values
-            if len(info) == 0:
+            if len(local_info) == 0:
+                transform_logger.info(get_logging_message('end local search - Antenna not found mma=[{}]'.format(mma)))
                 antennas_dict = antennas_dict.append(pd.DataFrame({
                     "cb": [cb],
                     "trademark": [""],
-                    "model": ["DIAMETER NOT FOUND"],
-                    "diameter": [get_diameter(mma2)],
+                    "model": [mma],
+                    "diameter": [diameter],
                     "gain": [""]
                 }), ignore_index=True)
 
-                info = [(diameter, '', mma)]
+                info = [(diameter, '', mma, '')]
+                new_antennas = True
+            else:
+                diameter = local_info[0][0]
+                transform_logger.info(get_logging_message('end local search antennas=[{}]'.format(local_info)))
+                if diameter:
+                    info = get_pathloss_antenna(cb, diameter)
+                else:
+                    info = get_generic_antenna(cb, mma, diameter)
+
+                if len(info) == 0:
+                    info = get_generic_antenna(cb, mma, diameter)
+
+    elif not mma:
+        if mma2 and re.match(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
+            info = get_pathloss_antenna(cb, get_diameter(mma2))
+
+            if len(info) == 0:
+                info = get_generic_antenna(cb, mma2, get_diameter(mma2))
+                new_diameters = True
         else:
-            info = antennas_dict.loc[
-                (antennas_dict.trademark == ANDREW) & antennas_dict.cb.str.contains(str(cb)), ["diameter", "gain",
-                                                                                               "model"]].values
+            info = get_generic_antenna(cb, "", "")
 
     return tuple(info[0])
 
@@ -97,40 +150,21 @@ def get_diameter(antenna_desc):
     return diameter
 
 
-def get_antenna_code(diameter):
-    global antennas_info_dict
-    diameter = str(diameter)
-    if diameter in antennas_info_dict and 'code' in antennas_info_dict[diameter]:
-        return antennas_info_dict[diameter]['code']
-    elif diameter in antennas_info_dict:
-        antennas_info_dict[diameter]['code'] = diameter
-    else:
-        antennas_info_dict[diameter] = {'code': diameter}
-    return diameter
-
-
-def get_antenna_gain(diameter):
-    global antennas_info_dict
-    diameter = str(diameter)
-    if diameter in antennas_info_dict and 'gain' in antennas_info_dict[diameter]:
-        return antennas_info_dict[diameter]['gain']
-    elif diameter in antennas_info_dict:
-        antennas_info_dict[diameter]['gain'] = diameter
-    else:
-        antennas_info_dict[diameter] = {'gain': diameter}
-    return diameter
-
-
 def update_antennas_dict():
-    global antennas_dict
+    global antennas_dict, generic_searches
+
+    antennas_dict.cb = antennas_dict.cb.str.strip('-')
     antennas_dict.to_csv('config/antennas_dict.csv', index=False)
+    generic_searches.to_csv('config/generic_searches.csv', index=False)
 
 
 def transform(import_file, result_dir, result_filename):
+    global transaction_id
+    transaction_id = uuid.uuid4()
     try:
-        logging.info(
+        logger.info(get_logging_message(
             "Starting Transform input_file=[{}], result_dir=[{}], result_filename=[{}]".format(import_file, result_dir,
-                                                                                               result_filename))
+                                                                                               result_filename)))
 
         with open('config/pathloss_columns.pkl', 'rb') as file:
             pathloss_columns = pickle.load(file)
@@ -138,9 +172,13 @@ def transform(import_file, result_dir, result_filename):
         with open('config/enacom_selected_columns.pkl', 'rb') as file:
             enacom_selected_columns = pickle.load(file)
 
-        messages = ""
+        messages = "Transaction ID: {}\n".format(transaction_id)
+        global new_antennas, new_diameters
+        new_antennas, new_diameters = False, False
+
         # File Import
         enacom_export = pd.read_excel(import_file)
+
         # Integrity Check
         not_linked_antennas = [uid for uid in enacom_export.NA_ENLAZADO.unique() if
                                uid not in enacom_export.NA_HERTZ.unique()]
@@ -162,7 +200,7 @@ def transform(import_file, result_dir, result_filename):
 
         enacom_antenas_info.columns = pathloss_columns
 
-        logging.info("Start Column Transformation")
+        logger.info(get_logging_message("Start Column Transformation"))
         # Columns Transformation
         pathloss_df = enacom_antenas_info.copy()
         pathloss_df.loc[pathloss_df.SiteName.isna(), 'SiteName'] = pathloss_df.SiteName.mode()[0]
@@ -176,12 +214,13 @@ def transform(import_file, result_dir, result_filename):
                                                                                "CallSign"]].fillna("")
         tuple_list = [mma_transform(*tuple(row)) for row in
                       pathloss_df.loc[:, ["AntennaModel", "AntennaDiameter", "CallSign"]].values]
-        pathloss_df.loc[:, ["AntennaDiameter", "AntennaGain", "AntennaModel"]] = pd.DataFrame(tuple_list).values
-        pathloss_df.AntennaCode = pathloss_df.AntennaModel
+
+        pathloss_df.loc[:, ["AntennaDiameter", "AntennaGain", "AntennaModel", "AntennaCode"]] = pd.DataFrame(
+            tuple_list).values
         pathloss_df.TXFreq1 = pathloss_df.TXFreq1.apply(lambda freq: '{0:.4f}'.format(freq))
         pathloss_df.Pol1 = pathloss_df.Pol1.apply(lambda pol: pol[-2])
 
-        logging.info("End Column Transformation")
+        logger.info(get_logging_message("End Column Transformation"))
 
         # Merging with it self
         pathloss_df_complete = pd.merge(
@@ -224,9 +263,13 @@ def transform(import_file, result_dir, result_filename):
 
         update_antennas_dict()
 
-        logging.info("End Transformation")
+        logger.info(get_logging_message("End Transformation"))
         messages += "Transformation Done! look for the file in {}\n".format(result_file)
+
+        messages += "New Antennas Found!!\n" if new_antennas else ""
+        messages += "New Diameters Found!!" if new_diameters else ""
+
     except Exception as err:
         messages = "Ops, An error happened!"
-        logging.exception(messages)
+        logger.exception(messages)
     return messages
