@@ -1,4 +1,4 @@
-# MZ Transformer
+# Hzios
 This is a transformer that allows you to transform the direct Enacom export information to load it into Pathloss
 
 ## Installation
