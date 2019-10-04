@@ -70,13 +70,13 @@ def mma_transform(mma, mma2, cb):
     cb = int(cb)
     search_local = True
 
-    if mma and mma2:
-        if re.search(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
+    if mma:
+        if mma2 and re.search(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
             mma = mma.replace("ANDREW", "").replace("CORPORATION -", "").strip()
             diameter = get_diameter(mma2)
             info = get_pathloss_antenna(cb, diameter)
             search_local = len(info) == 0
-        else:
+        elif mma2:
             mma = mma2.replace(" ", "")
 
         if search_local:
@@ -87,7 +87,7 @@ def mma_transform(mma, mma2, cb):
             if len(local_info) == 0:
                 transform_logger.info(get_logging_message('end local search - Antenna not found mma=[{}]'.format(mma)))
                 antennas_dict = antennas_dict.append(pd.DataFrame({
-                    "cb": [cb],
+                    "cb": ['-{}'.format(cb)],
                     "trademark": [""],
                     "model": [mma],
                     "diameter": [diameter],
@@ -107,17 +107,23 @@ def mma_transform(mma, mma2, cb):
                 if len(info) == 0:
                     info = get_generic_antenna(cb, mma, diameter)
 
-    elif not mma:
-        if mma2 and re.match(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
+    elif mma2:
+        if re.match(SHORT_DIAMETER_PATTERN + '|' + LONG_DIAMETER_PATTERN, mma2):
             info = get_pathloss_antenna(cb, get_diameter(mma2))
 
             if len(info) == 0:
                 info = get_generic_antenna(cb, mma2, get_diameter(mma2))
                 new_diameters = True
+
         else:
             info = get_generic_antenna(cb, "", "")
+    else:
+        info = get_generic_antenna(cb, "", "")
 
-    return tuple(info[0])
+    return_tuple = tuple(info[0])
+    transform_logger.info(
+        get_logging_message('end mma_transform diameter=[{}], gain=[{}], model=[{}], code=[{}]'.format(*return_tuple)))
+    return return_tuple
 
 
 def lat_transformation(lat_lon, lat=True):
@@ -270,6 +276,6 @@ def transform(import_file, result_dir, result_filename):
         messages += "New Diameters Found!!" if new_diameters else ""
 
     except Exception as err:
-        messages = "Ops, An error happened!"
+        messages += "Ops, An error happened!"
         logger.exception(messages)
     return messages
