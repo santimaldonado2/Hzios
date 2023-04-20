@@ -2,8 +2,6 @@ import pandas as pd
 import streamlit as st
 from transform import load_data
 
-st.set_page_config(layout="wide")
-
 antennas_dict, antennas_url = load_data('antennas')
 pathloss_antennas, pathloss_url = load_data('pathloss_antennas')
 enacom_cols, enacom_url = load_data('enacom_cols')

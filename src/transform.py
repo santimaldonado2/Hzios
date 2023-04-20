@@ -7,6 +7,27 @@ SHORT_DIAMETER_PATTERN = r'P \d[.,]?[\d+]?M'
 LONG_DIAMETER_PATTERN = r'\d[,.]?\d? metros'
 ANDREW = "ANDREW CORPORATION"
 
+SITE_NAME = "SITE_NAME"
+CALL_SIGN = "CALL_SIGN"
+STATION_CODE = "STATION_CODE"
+OWNER_CODE = "OWNER_CODE"
+OPERATOR_CODE = "OPERATOR_CODE"
+LATITUDE = "LATITUDE"
+LONGITUDE = "LONGITUDE"
+ANTENNA_MODEL = "ANTENNA_MODEL"
+ANTENNA_CODE = "ANTENNA_CODE"
+ANTENNA_DIAMETER = "ANTENNA_DIAMETER"
+ANTENNA_HEIGHT = "ANTENNA_HEIGHT"
+ANTENNA_GAIN = "ANTENNA_GAIN"
+TX_FREQ = "TX_FREQ"
+POL = "POL"
+RADIO_CODE = "RADIO_CODE"
+RADIO_MODEL = "RADIO_MODEL"
+EM_DESIG = "EM_DESIG"
+TX_POWER = "TX_POWER"
+EMISSION_CODE = "EMISSION_CODE"
+LINK_CODE = "LINK_CODE"
+
 new_antennas = False
 new_diameters = False
 
@@ -24,7 +45,6 @@ def load_data(name, add_hyphen = False):
     if add_hyphen:
         df.Cb = "-" + df.Cb
     return df, url
-
 @st.cache_data
 def convert_df(df):
     return df.to_csv(index=False, header=False).encode('utf-8')
@@ -148,17 +168,21 @@ def get_diameter(antenna_desc):
 
 
 def get_result_df(enacom_export, messages):
+    columns_df, _ = load_data('enacom_cols')
+    enacom_columns = pd.Series(columns_df["Enacom"].values, index=columns_df["Column"]).to_dict()
+    columns_order = columns_df['Column']
+
     antennas_dict, _ = load_data("antennas", True)
     new_antennas = set()
     generic_searches = set()
     new_diameters = False
 
-    not_linked_antennas = [uid for uid in enacom_export[ENACOM_COLUMNS[LINK_CODE]].unique() if
-                           uid not in enacom_export[ENACOM_COLUMNS[EMISSION_CODE]].unique()]
+    not_linked_antennas = [uid for uid in enacom_export[enacom_columns[LINK_CODE]].unique() if
+                           uid not in enacom_export[enacom_columns[EMISSION_CODE]].unique()]
     if len(not_linked_antennas) > 0:
         messages += "WARNING: There are some un-linked antennas, the file may be corrupted\n"
-    enacom_antenas_info = enacom_export.loc[:, ENACOM_COLUMNS.values()]
-    enacom_antenas_info.columns = COLUMNS_ORDER
+    enacom_antenas_info = enacom_export.loc[:, enacom_columns.values()]
+    enacom_antenas_info.columns = columns_df['Column']
     logger.info(get_logging_message("Start Column Transformation"))
     # Columns Transformation
     pathloss_df = enacom_antenas_info.copy()
@@ -206,7 +230,7 @@ def get_result_df(enacom_export, messages):
     pathloss_df_complete = pathloss_df_complete.loc[rows, :]
     # Columns rearrangement
     pathloss_df_complete = pathloss_df_complete[
-        [col + suffix for col in COLUMNS_ORDER for suffix in ('_S1', '_S2')]]
+        [col + suffix for col in columns_order for suffix in ('_S1', '_S2')]]
     pathloss_df_complete = pathloss_df_complete.drop(
         columns=[f'{LINK_CODE}_S1', f'{LINK_CODE}_S2', f'{EMISSION_CODE}_S1', f'{EMISSION_CODE}_S2'])
     # Adding number sequences
