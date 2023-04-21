@@ -4,8 +4,11 @@ import streamlit as st
 
 from transform import get_result_df, convert_df
 
-st.set_page_config(layout="wide")
-st.sidebar.image("statics/mz_logo.png")
+st.set_page_config(layout="wide",
+                   page_title="Hzios",
+                   page_icon="statics/mz_logo.ico")
+
+st.sidebar.image("statics/mz_logo.ico")
 st.sidebar.title("Hzios")
 st.sidebar.caption("Made by Santiago Maldonado.")
 
