@@ -55,7 +55,7 @@ if st.session_state["authentication_status"]:
                 st.text("")
                 st.text("")
                 st.download_button(
-                    label="Descargame todo wacho",
+                    label="Download Pathloss File",
                     data=csv,
                     file_name=f"{file_name}.csv",
                     mime="text/csv",
