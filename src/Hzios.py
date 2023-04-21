@@ -3,10 +3,11 @@ import pandas as pd
 import streamlit as st
 
 from transform import get_result_df, convert_df
+
 st.set_page_config(layout="wide")
 st.sidebar.image("statics/mz_logo.png")
-st.sidebar.title('Hzios')
-st.sidebar.caption('Made by Santiago Maldonado.')
+st.sidebar.title("Hzios")
+st.sidebar.caption("Made by Santiago Maldonado.")
 
 
 st.write("# Hzios")
@@ -29,7 +30,13 @@ with col2:
     if enacom_file:
         transaction_id = uuid.uuid4()
         messages = "Transaction ID: {}\n".format(transaction_id)
-        messages, result_df, new_antennas, generic_searches, new_diameters = get_result_df(enacom_df, messages)
+        (
+            messages,
+            result_df,
+            new_antennas,
+            generic_searches,
+            new_diameters,
+        ) = get_result_df(enacom_df, messages)
         st.text("")
         st.text("")
         st.text("")
@@ -43,8 +50,8 @@ with col2:
             st.download_button(
                 label="Descargame todo wacho",
                 data=csv,
-                file_name=f'{file_name}.csv',
-                mime='text/csv',
+                file_name=f"{file_name}.csv",
+                mime="text/csv",
             )
 
 if enacom_file:
@@ -54,13 +61,22 @@ if enacom_file:
     with col1:
         st.write("### New Antennas")
         if new_antennas:
-            st.write(pd.DataFrame(list(new_antennas), columns=["Cb",	"trademark",	"model"	,"diameter",	"gain"]))
+            st.write(
+                pd.DataFrame(
+                    list(new_antennas),
+                    columns=["Cb", "trademark", "model", "diameter", "gain"],
+                )
+            )
         else:
             st.write("No new Antennas found")
 
     with col2:
         st.write("### Generic Searches")
         if generic_searches:
-            st.write(pd.DataFrame(list(generic_searches), columns=["cb", "antena", "diameter"]))
+            st.write(
+                pd.DataFrame(
+                    list(generic_searches), columns=["cb", "antena", "diameter"]
+                )
+            )
         else:
             st.write("No generis searches made")

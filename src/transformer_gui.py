@@ -6,10 +6,12 @@ from PIL import ImageTk, Image
 import logging
 from logging.config import fileConfig
 
-fileConfig('config/logging_config.ini')
+fileConfig("config/logging_config.ini")
+
 
 def clean_messages(*args):
     messages.set("")
+
 
 def search_file(*args):
     clean_messages()
@@ -24,7 +26,9 @@ def choose_result_directory(*args):
 
 def transform_file(*args):
     if import_file.get() and result_directory.get() and result_filename.get():
-        messages.set(transform(import_file.get(), result_directory.get(), result_filename.get()))
+        messages.set(
+            transform(import_file.get(), result_directory.get(), result_filename.get())
+        )
     else:
         messages.set("Please complete all the fields before transforming!!!")
 
@@ -49,23 +53,35 @@ result_filename_entry = ttk.Entry(mainframe, width=20, textvariable=result_filen
 ttk.Label(mainframe, image=mz_logo).grid(column=1, columnspan=3, row=1)
 
 ttk.Label(mainframe, text="ENACOM Export File:").grid(column=1, row=2, sticky=E)
-ttk.Label(mainframe, textvariable=import_file, width=100).grid(column=2, row=2, sticky=(W, E))
-ttk.Button(mainframe, text="Search File", command=search_file, width=20).grid(column=3, row=2, sticky=W)
+ttk.Label(mainframe, textvariable=import_file, width=100).grid(
+    column=2, row=2, sticky=(W, E)
+)
+ttk.Button(mainframe, text="Search File", command=search_file, width=20).grid(
+    column=3, row=2, sticky=W
+)
 
 ttk.Label(mainframe, text="Result Directory:").grid(column=1, row=3, sticky=E)
-ttk.Label(mainframe, textvariable=result_directory, width=100).grid(column=2, row=3, sticky=(W, E))
-ttk.Button(mainframe, text="Search Directory", command=choose_result_directory, width=20).grid(column=3, row=3,
-                                                                                               sticky=W)
+ttk.Label(mainframe, textvariable=result_directory, width=100).grid(
+    column=2, row=3, sticky=(W, E)
+)
+ttk.Button(
+    mainframe, text="Search Directory", command=choose_result_directory, width=20
+).grid(column=3, row=3, sticky=W)
 
 ttk.Label(mainframe, text="Result Filename:").grid(column=1, row=4, sticky=E)
 result_filename_entry.grid(column=2, row=4, sticky=(W, E))
 
-ttk.Button(mainframe, text="Transform", command=transform_file, width=140).grid(column=1, columnspan=3, row=5)
+ttk.Button(mainframe, text="Transform", command=transform_file, width=140).grid(
+    column=1, columnspan=3, row=5
+)
 
-ttk.Label(mainframe, textvariable=messages).grid(column=1, columnspan=3, row=6, sticky=(W, E))
+ttk.Label(mainframe, textvariable=messages).grid(
+    column=1, columnspan=3, row=6, sticky=(W, E)
+)
 
-for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
+for child in mainframe.winfo_children():
+    child.grid_configure(padx=5, pady=5)
 
-root.bind('<Return>', transform_file)
+root.bind("<Return>", transform_file)
 
 root.mainloop()
