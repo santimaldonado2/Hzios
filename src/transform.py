@@ -38,6 +38,8 @@ transform_logger = logging.getLogger("transformLogger")
 generic_search_logger = logging.getLogger("genericSearchLogger")
 
 
+
+
 @st.cache_data(ttl=120)
 def load_data(name, add_hyphen=False):
     url = st.secrets[name]

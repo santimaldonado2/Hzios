@@ -108,3 +108,4 @@ data/
 
 # IntelliJ
 .idea/
+/.streamlit/

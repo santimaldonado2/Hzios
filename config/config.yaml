@@ -1,0 +1,21 @@
+credentials:
+  usernames:
+    santi:
+      email: santimaldonado2@gmail.com
+      name: Santiago Jose Maldonado
+      password: '$2b$12$YN4WTyXDgv0o/FKJCeLIt.c5GHTT./N/wcUrU2BNkvl9bXgpRsbQa'
+    smaldonado:
+      email: smaldonado@mznetworks.com
+      name: Ing Sebastian Eduardo Maldonado
+      password: '$2b$12$wfP/QzZ7FRL94x/WIJh1AurTMDFOirFx4UeagVqdYjp9PJp41k1P2'
+    jfzalazar:
+      email: jfzalazar@mznetworks.com
+      name: Ing Juan Facundo Salazar
+      password: '$2b$12$wfP/QzZ7FRL94x/WIJh1AurTMDFOirFx4UeagVqdYjp9PJp41k1P2'
+cookie:
+  expiry_days: 30
+  key: hzios # Must be string
+  name: hzios_cookie
+preauthorized:
+  emails:
+  - santimaldonado2@gmail.com
