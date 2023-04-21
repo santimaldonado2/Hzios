@@ -37,7 +37,7 @@ logger = logging.getLogger()
 transform_logger = logging.getLogger('transformLogger')
 generic_search_logger = logging.getLogger('genericSearchLogger')
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=120)
 def load_data(name, add_hyphen = False):
     url = st.secrets[name]
     csv_url = url.replace("/edit#gid=", "/export?format=csv&gid=")
@@ -75,7 +75,7 @@ def get_generic_antenna(cb, mma, diameter):
 
     generic_antennas = pathloss_antennas.loc[
         ~pathloss_antennas.Generic.isna() &
-        pathloss_antennas.Cb.str.contains('-{}'.format(cb)), ["Diameter", "Gain", "Model", "Code"]].values
+        pathloss_antennas.Cb.str.contains('-{}'.format(cb)), ["Diameter", "Gain", "Model", "Code"]].values[0]
 
     generic_search_logger.info(
         get_logging_message('end get_generic_antenna generic_antennas=[{}]'.format(generic_antennas)))
