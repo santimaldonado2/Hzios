@@ -82,8 +82,8 @@ if st.session_state["authentication_status"]:
             if generic_searches:
                 st.write(
                     pd.DataFrame(
-                        list(generic_searches), columns=["cb", "antena", "diameter"]
-                    )
+                        list(generic_searches), columns=["freq", "antena", "diameter"]
+                    ).drop_duplicates()
                 )
             else:
                 st.write("No generis searches made")

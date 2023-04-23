@@ -1,5 +1,7 @@
 import logging
 import re
+
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -38,8 +40,6 @@ transform_logger = logging.getLogger("transformLogger")
 generic_search_logger = logging.getLogger("genericSearchLogger")
 
 
-
-
 @st.cache_data(ttl=120)
 def load_data(name, add_hyphen=False):
     url = st.secrets[name]
@@ -59,63 +59,66 @@ def get_logging_message(message):
     return "[{}]:{}".format(transaction_id, message)
 
 
-def get_pathloss_antenna(cb, diameter):
+def get_pathloss_antenna(ft, diameter):
     pathloss_antennas, _ = load_data("pathloss_antennas", add_hyphen=True)
 
     transform_logger.info(
         get_logging_message(
-            "start get_pathloss_antenna cb=[{}], diameter=[{}]".format(cb, diameter)
+            "start get_pathloss_antenna ft=[{}], diameter=[{}]".format(ft, diameter)
         )
     )
     antennas = pathloss_antennas.loc[
-        pathloss_antennas.Cb.str.contains("-{}".format(cb))
+        (ft >= pathloss_antennas.Flow)
+        & (ft <= pathloss_antennas.Fhigh)
         & (pathloss_antennas.Diameter <= diameter + 0.04)
         & (pathloss_antennas.Diameter >= diameter - 0.04),
-        ["Diameter", "Gain", "Model", "Code"],
-    ].values
+        ["Diameter", "Gain", "Model", "Code", "Cb"],
+    ]
+    antennas.Cb = antennas.Cb.apply(lambda cb: cb.split("-")[1])
+    antennas = antennas.values
     transform_logger.info(
         get_logging_message("end get_pathloss_antenna antennas=[{}]".format(antennas))
     )
     return antennas
 
 
-def get_generic_antenna(cb, mma, diameter):
+def get_generic_antenna(ft, mma, diameter):
     pathloss_antennas, _ = load_data("pathloss_antennas", add_hyphen=True)
 
     generic_search_logger.info(
         get_logging_message(
             "start get_generic_antenna cb=[{}], mma=[{}], diameter=[{}]".format(
-                cb, mma, diameter
+                ft, mma, diameter
             )
         )
     )
 
-    generic_search = (cb, mma, diameter)
-
+    generic_search = (ft, mma, diameter)
     generic_antennas = pathloss_antennas.loc[
         ~pathloss_antennas.Generic.isna()
-        & pathloss_antennas.Cb.str.contains("-{}".format(cb)),
-        ["Diameter", "Gain", "Model", "Code"],
-    ].values[0]
+        & (ft >= pathloss_antennas.Flow)
+        & (ft <= pathloss_antennas.Fhigh),
+        ["Diameter", "Gain", "Model", "Code", "Cb"],
+    ]
+    generic_antennas.Cb = generic_antennas.Cb.apply(lambda cb: cb.split("-")[1])
+    generic_antennas = generic_antennas.values
 
     generic_search_logger.info(
         get_logging_message(
             "end get_generic_antenna generic_antennas=[{}]".format(generic_antennas)
         )
     )
-
     return generic_antennas, generic_search
 
 
-def mma_transform(mma, mma2, cb, antennas_dict):
+def mma_transform(mma, mma2, ft, antennas_dict):
     transform_logger.info(
         get_logging_message(
-            "start mma_transform mma=[{}], mma2=[{}], cb=[{}]".format(mma, mma2, cb)
+            "start mma_transform mma=[{}], mma2=[{}], ft=[{}]".format(mma, mma2, ft)
         )
     )
 
     diameter = ""
-    cb = int(cb)
     search_local = True
     new_antenna = None
     generic_search = None
@@ -127,7 +130,7 @@ def mma_transform(mma, mma2, cb, antennas_dict):
         ):
             mma = mma.replace("ANDREW", "").replace("CORPORATION -", "").strip()
             diameter = get_diameter(mma2)
-            info = get_pathloss_antenna(cb, diameter)
+            info = get_pathloss_antenna(ft, diameter)
             search_local = len(info) == 0
         elif mma2:
             mma = mma2.replace(" ", "")
@@ -146,8 +149,8 @@ def mma_transform(mma, mma2, cb, antennas_dict):
                         "end local search - Antenna not found mma=[{}]".format(mma)
                     )
                 )
-                new_antenna = ("-{}".format(cb), "", mma, diameter, "")
-                info = [(diameter, "", mma, "")]
+                new_antenna = ("-{}".format(ft), "", mma, diameter, "")
+                info = [(diameter, "", mma, "", "")]
             else:
                 diameter = local_info[0][0]
                 transform_logger.info(
@@ -157,28 +160,23 @@ def mma_transform(mma, mma2, cb, antennas_dict):
                 )
                 info = []
                 if diameter:
-                    info = get_pathloss_antenna(cb, diameter)
-
+                    info = get_pathloss_antenna(ft, diameter)
                 if len(info) == 0:
-                    info = get_generic_antenna(cb, mma, diameter)
+                    info, generic_search  = get_generic_antenna(ft, mma, diameter)
 
     elif mma2 and re.match(SHORT_DIAMETER_PATTERN + "|" + LONG_DIAMETER_PATTERN, mma2):
-        info = get_pathloss_antenna(cb, get_diameter(mma2))
+        info = get_pathloss_antenna(ft, get_diameter(mma2))
 
         if len(info) == 0:
-            info, generic_search = get_generic_antenna(cb, mma2, get_diameter(mma2))
+            info, generic_search = get_generic_antenna(ft, mma2, get_diameter(mma2))
             new_diameters = True
+
     else:
-        info, generic_search = get_generic_antenna(cb, "", "")
+        info, generic_search = get_generic_antenna(ft, "", "")
 
     return_tuple = tuple(info[0])
-    transform_logger.info(
-        get_logging_message(
-            "end mma_transform diameter=[{}], gain=[{}], model=[{}], code=[{}]".format(
-                *return_tuple
-            )
-        )
-    )
+    transform_logger.info(get_logging_message(return_tuple))
+
     return return_tuple, new_antenna, generic_search, new_diameters
 
 
@@ -256,25 +254,27 @@ def get_result_df(enacom_export, messages):
         [ANTENNA_MODEL, ANTENNA_DIAMETER, CALL_SIGN]
     ].fillna("")
 
-    for i, row in pathloss_df[[ANTENNA_MODEL, ANTENNA_DIAMETER, CALL_SIGN]].iterrows():
+    antennas_info = []
+    for i, row in pathloss_df[
+        [ANTENNA_MODEL, ANTENNA_DIAMETER, TX_FREQ, CALL_SIGN]
+    ].iterrows():
         info, new_antenna, generic_search, new_diameter = mma_transform(
             mma=row[ANTENNA_MODEL],
             mma2=row[ANTENNA_DIAMETER],
-            cb=row[CALL_SIGN],
+            ft=row[TX_FREQ],
             antennas_dict=antennas_dict,
         )
-        (
-            row[ANTENNA_DIAMETER],
-            row[ANTENNA_GAIN],
-            row[ANTENNA_MODEL],
-            row[ANTENNA_CODE],
-        ) = info
+        antennas_info.append(info)
         if new_antenna:
             new_antennas.add(new_antenna)
         if generic_search:
             generic_searches.add(generic_search)
 
         new_diameters = new_diameters or new_diameter
+
+    pathloss_df.loc[
+        :, [ANTENNA_DIAMETER, ANTENNA_GAIN, ANTENNA_MODEL, ANTENNA_CODE, CALL_SIGN]
+    ] = pd.DataFrame(antennas_info).values
 
     pathloss_df[TX_FREQ] = pathloss_df[TX_FREQ].apply(
         lambda freq: "{0:.4f}".format(freq)
