@@ -3,15 +3,15 @@ credentials:
     santi:
       email: santimaldonado2@gmail.com
       name: Santiago Jose Maldonado
-      password: '$2b$12$YN4WTyXDgv0o/FKJCeLIt.c5GHTT./N/wcUrU2BNkvl9bXgpRsbQa'
+      password: '$2b$12$D539WhyI6vg4fFAaSaVQ3ew5pbQMU/5dtYVYm06kunovxXOVZbRva'
     smaldonado:
       email: smaldonado@mznetworks.com
       name: Ing Sebastian Eduardo Maldonado
-      password: '$2b$12$wfP/QzZ7FRL94x/WIJh1AurTMDFOirFx4UeagVqdYjp9PJp41k1P2'
+      password: '$2b$12$D539WhyI6vg4fFAaSaVQ3ew5pbQMU/5dtYVYm06kunovxXOVZbRva'
     jfzalazar:
       email: jfzalazar@mznetworks.com
       name: Ing Juan Facundo Salazar
-      password: '$2b$12$wfP/QzZ7FRL94x/WIJh1AurTMDFOirFx4UeagVqdYjp9PJp41k1P2'
+      password: '$2b$12$D539WhyI6vg4fFAaSaVQ3ew5pbQMU/5dtYVYm06kunovxXOVZbRva'
 cookie:
   expiry_days: 30
   key: hzios # Must be string
