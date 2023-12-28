@@ -314,8 +314,8 @@ def get_result_df(enacom_export, messages):
     # Adding number sequences
     col1 = [str(pos) for pos in range(10, 10 + len(pathloss_df_complete) * 2, 2)]
     col2 = [str(pos) for pos in range(11, 11 + len(pathloss_df_complete) * 2, 2)]
-    for col, col_suffix in [(SITE_NAME, col1), (CALL_SIGN, col2)]:
-        for suffix in ["S1", "S2"]:
+    for col in [SITE_NAME, CALL_SIGN]:
+        for suffix, col_suffix in [("S1", col1), ("S2", col2)]:
             pathloss_df_complete[f"{col}_{suffix}"] = (
                 pathloss_df_complete[f"{col}_{suffix}"].map(str) + "-" + col_suffix
             )

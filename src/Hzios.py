@@ -13,11 +13,13 @@ st.sidebar.image("statics/mz_logo.ico")
 st.sidebar.title("Hzios")
 st.sidebar.caption("Made by Santiago Maldonado.")
 
-if True:
-    #authenticator.logout('Logout', 'sidebar')
+authenticator = auth()
+
+if st.session_state["authentication_status"]:
+    authenticator.logout('Logout', 'sidebar')
 
     st.write("# Hzios")
-    #st.write(f'Welcome *{st.session_state["name"]}*')
+    st.write(f'Welcome *{st.session_state["name"]}*')
 
     col1, col2 = st.columns(2)
     with col1:
@@ -87,7 +89,7 @@ if True:
             else:
                 st.write("No generis searches made")
 
-# elif st.session_state["authentication_status"]:
-#     st.error('Username/password is incorrect')
+elif st.session_state["authentication_status"]:
+    st.error('Username/password is incorrect')
 
 
